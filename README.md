@@ -18,10 +18,10 @@ You copied something ten minutes ago and now it's gone. EdgeClip remembers every
 - 🖼 **Understands what you copied** — images get thumbnails, colors get a swatch (`#AF52DE`), links are highlighted, files show their names, and each clip shows the app it came from
 - 🔒 **Private by default** — passwords that password managers mark as private are never saved, you can block whole apps, pause recording anytime, and everything stays on your Mac
 - 📌 **Pin it open** — pinned panel turns into Liquid Glass (macOS 26+)
-- 🎨 **Customize everything** — fonts (any font on your Mac), weight, size, text & accent colors, tint, opacity, size, corner radius, left or right edge
+- 🎨 **Customize everything** — fonts (any font on your Mac), weight, size, text & accent colors, tint, opacity, size, corner radius, left or right edge, top / middle / bottom
 - 🪶 **Tiny & native** — a single Swift file, no dependencies, no account, no cloud
 
-Works great next to [EdgeTodo](https://github.com/tllct122/edge-todo-for-mac) — EdgeClip on the left, EdgeTodo on the right.
+Works great next to [EdgeTodo](https://github.com/tllct122/edge-todo-for-mac) — EdgeClip on the left, EdgeTodo on the right, so they never overlap.
 
 ## Install
 

@@ -105,6 +105,11 @@ enum EdgeSide: String, CaseIterable {
     var label: String { self == .left ? "Left" : "Right" }
 }
 
+enum VPosition: String, CaseIterable {
+    case top, middle, bottom
+    var label: String { rawValue.capitalized }
+}
+
 enum HotkeyChoice: String, CaseIterable {
     case optCmdV, ctrlOptV, ctrlCmdV, off
 
@@ -149,6 +154,7 @@ final class AppSettings: ObservableObject {
         static let height = 520.0
         static let corner = 18.0
         static let side = EdgeSide.left
+        static let vPosition = VPosition.top
         static let historyLimit = 200
         static let previewLines = 2
         static let saveImages = true
@@ -175,6 +181,7 @@ final class AppSettings: ObservableObject {
     @Published var height: Double { didSet { save() } }
     @Published var corner: Double { didSet { save() } }
     @Published var side: EdgeSide { didSet { save() } }
+    @Published var vPosition: VPosition { didSet { save() } }
     @Published var historyLimit: Int { didSet { save() } }
     @Published var previewLines: Int { didSet { save() } }
     @Published var saveImages: Bool { didSet { save() } }
@@ -202,6 +209,7 @@ final class AppSettings: ObservableObject {
         height = d.object(forKey: "height") as? Double ?? Default.height
         corner = d.object(forKey: "corner") as? Double ?? Default.corner
         side = EdgeSide(rawValue: d.string(forKey: "side") ?? "") ?? Default.side
+        vPosition = VPosition(rawValue: d.string(forKey: "vPosition") ?? "") ?? Default.vPosition
         historyLimit = d.object(forKey: "historyLimit") as? Int ?? Default.historyLimit
         previewLines = d.object(forKey: "previewLines") as? Int ?? Default.previewLines
         saveImages = d.object(forKey: "saveImages") as? Bool ?? Default.saveImages
@@ -230,6 +238,7 @@ final class AppSettings: ObservableObject {
         d.set(height, forKey: "height")
         d.set(corner, forKey: "corner")
         d.set(side.rawValue, forKey: "side")
+        d.set(vPosition.rawValue, forKey: "vPosition")
         d.set(historyLimit, forKey: "historyLimit")
         d.set(previewLines, forKey: "previewLines")
         d.set(saveImages, forKey: "saveImages")
@@ -257,6 +266,7 @@ final class AppSettings: ObservableObject {
         height = Default.height
         corner = Default.corner
         side = Default.side
+        vPosition = Default.vPosition
         historyLimit = Default.historyLimit
         previewLines = Default.previewLines
         saveImages = Default.saveImages
@@ -1151,6 +1161,11 @@ struct SettingsView: View {
 
     private func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
 
+    /// EdgeTodo uses the right edge — used to warn about overlapping panels.
+    private var edgeTodoInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.local.edgetodo") != nil
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -1270,6 +1285,16 @@ struct SettingsView: View {
                             ForEach(EdgeSide.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
                         .pickerStyle(.segmented)
+                        Picker("Position", selection: $s.vPosition) {
+                            ForEach(VPosition.allCases, id: \.self) { Text($0.label).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        if s.side == .right && edgeTodoInstalled && s.vPosition == .top {
+                            Text("EdgeTodo also sits at the top of the right edge, so the two panels will overlap. Choose Left, or move EdgeClip to the bottom.")
+                                .font(.caption)
+                                .foregroundColor(Color(hex: "FF9500"))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         sliderRow("Width", $s.width, 260...480, step: 10) { "\(Int($0))" }
                         sliderRow("Height", $s.height, 320...800, step: 10) { "\(Int($0))" }
                         sliderRow("Corner radius", $s.corner, 0...32, step: 1) { "\(Int($0))" }
@@ -1381,8 +1406,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func expandedFrame() -> NSRect {
         let v = screen.visibleFrame
         let x = settings.side == .left ? v.minX + margin : v.maxX - panelSize.width - margin
-        return NSRect(x: x, y: v.maxY - panelSize.height - margin,
-                      width: panelSize.width, height: panelSize.height)
+        let y: CGFloat
+        switch settings.vPosition {
+        case .top: y = v.maxY - panelSize.height - margin
+        case .middle: y = v.midY - panelSize.height / 2
+        case .bottom: y = v.minY + margin
+        }
+        return NSRect(x: x, y: y, width: panelSize.width, height: panelSize.height)
     }
 
     func collapsedFrame() -> NSRect {
