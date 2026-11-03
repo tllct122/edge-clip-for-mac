@@ -110,6 +110,31 @@ enum VPosition: String, CaseIterable {
     var label: String { rawValue.capitalized }
 }
 
+/// Delete clips that aren't starred after a while.
+enum AutoDelete: String, CaseIterable {
+    case never, hour, day, week, month
+
+    var label: String {
+        switch self {
+        case .never: return "Never"
+        case .hour: return "1 hour"
+        case .day: return "1 day"
+        case .week: return "7 days"
+        case .month: return "30 days"
+        }
+    }
+
+    var seconds: TimeInterval? {
+        switch self {
+        case .never: return nil
+        case .hour: return 3600
+        case .day: return 86_400
+        case .week: return 7 * 86_400
+        case .month: return 30 * 86_400
+        }
+    }
+}
+
 enum HotkeyChoice: String, CaseIterable {
     case optCmdV, ctrlOptV, ctrlCmdV, off
 
@@ -156,6 +181,7 @@ final class AppSettings: ObservableObject {
         static let side = EdgeSide.left
         static let vPosition = VPosition.top
         static let historyLimit = 200
+        static let autoDelete = AutoDelete.never
         static let previewLines = 2
         static let saveImages = true
         static let pasteDirectly = false
@@ -183,6 +209,7 @@ final class AppSettings: ObservableObject {
     @Published var side: EdgeSide { didSet { save() } }
     @Published var vPosition: VPosition { didSet { save() } }
     @Published var historyLimit: Int { didSet { save() } }
+    @Published var autoDelete: AutoDelete { didSet { save() } }
     @Published var previewLines: Int { didSet { save() } }
     @Published var saveImages: Bool { didSet { save() } }
     @Published var pasteDirectly: Bool { didSet { save() } }
@@ -211,6 +238,7 @@ final class AppSettings: ObservableObject {
         side = EdgeSide(rawValue: d.string(forKey: "side") ?? "") ?? Default.side
         vPosition = VPosition(rawValue: d.string(forKey: "vPosition") ?? "") ?? Default.vPosition
         historyLimit = d.object(forKey: "historyLimit") as? Int ?? Default.historyLimit
+        autoDelete = AutoDelete(rawValue: d.string(forKey: "autoDelete") ?? "") ?? Default.autoDelete
         previewLines = d.object(forKey: "previewLines") as? Int ?? Default.previewLines
         saveImages = d.object(forKey: "saveImages") as? Bool ?? Default.saveImages
         pasteDirectly = d.object(forKey: "pasteDirectly") as? Bool ?? Default.pasteDirectly
@@ -240,6 +268,7 @@ final class AppSettings: ObservableObject {
         d.set(side.rawValue, forKey: "side")
         d.set(vPosition.rawValue, forKey: "vPosition")
         d.set(historyLimit, forKey: "historyLimit")
+        d.set(autoDelete.rawValue, forKey: "autoDelete")
         d.set(previewLines, forKey: "previewLines")
         d.set(saveImages, forKey: "saveImages")
         d.set(pasteDirectly, forKey: "pasteDirectly")
@@ -268,6 +297,7 @@ final class AppSettings: ObservableObject {
         side = Default.side
         vPosition = Default.vPosition
         historyLimit = Default.historyLimit
+        autoDelete = Default.autoDelete
         previewLines = Default.previewLines
         saveImages = Default.saveImages
         pasteDirectly = Default.pasteDirectly
@@ -608,6 +638,22 @@ final class ClipStore: ObservableObject {
         guard let i = items.firstIndex(where: { $0.id == id }) else { return }
         deleteImage(items.remove(at: i))
         save()
+    }
+
+    /// Removes clips that aren't starred and haven't been copied for `seconds`.
+    @discardableResult
+    func expire(after seconds: TimeInterval) -> Int {
+        let cutoff = Date().addingTimeInterval(-seconds)
+        let old = items.filter { item in
+            guard !item.isStarred, let last = isoFormatter.date(from: item.copied) else { return false }
+            return last < cutoff
+        }
+        guard !old.isEmpty else { return 0 }
+        let ids = Set(old.map { $0.id })
+        items.removeAll { ids.contains($0.id) }
+        old.forEach(deleteImage)
+        save()
+        return old.count
     }
 
     /// Removes everything except starred clips.
@@ -1181,7 +1227,10 @@ struct SettingsView: View {
                                 Text("\(s.historyLimit) clips").foregroundColor(.secondary)
                             }
                         }
-                        Text("Starred clips are never removed.")
+                        Picker("Delete unstarred clips after", selection: $s.autoDelete) {
+                            ForEach(AutoDelete.allCases, id: \.self) { Text($0.label).tag($0) }
+                        }
+                        Text("Counted from the last time a clip was copied. Starred clips are never removed.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Picker("Open with shortcut", selection: $s.hotkey) {
@@ -1391,6 +1440,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var mouseTimer: Timer?
     var clipTimer: Timer?
     var cancellables = Set<AnyCancellable>()
+    var expireTimer: Timer?
+
+    @objc func expireOldClips() {
+        guard let seconds = settings.autoDelete.seconds else { return }
+        store.expire(after: seconds)
+    }
     var lastCorner: Double = -1
     var lastHotkey: HotkeyChoice?
     var lastChangeCount = NSPasteboard.general.changeCount
@@ -1499,6 +1554,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                       userInfo: nil, repeats: true)
         RunLoop.main.add(c, forMode: .common)
         clipTimer = c
+
+        // auto-delete: check every minute, and right away when the setting changes
+        let x = Timer(timeInterval: 60, target: self, selector: #selector(expireOldClips),
+                      userInfo: nil, repeats: true)
+        RunLoop.main.add(x, forMode: .common)
+        expireTimer = x
+        settings.$autoDelete
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.expireOldClips() } }
+            .store(in: &cancellables)
 
         NotificationCenter.default.addObserver(self, selector: #selector(screensChanged),
                                                name: NSApplication.didChangeScreenParametersNotification,

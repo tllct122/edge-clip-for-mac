@@ -14,6 +14,7 @@ You copied something ten minutes ago and now it's gone. EdgeClip remembers every
 - ⌨️ **Keyboard first** — ⌥⌘V opens it, type to search, ↑↓ to choose, Return to copy, ⌘1–9 for the first nine clips
 - ⚡ **Paste right away** (optional) — pick a clip and it's pasted straight into the app you're using
 - ★ **Star your favorites** — email templates, addresses, links you always reuse. Starred clips stay at the top, can be named, and are never cleared
+- 🧹 **Auto-delete** — optionally remove clips you haven't starred after 1 hour, 1 day, 7 days or 30 days
 - 🔍 **Search & filter** — All / Text / Links / Images / Colors
 - 🖼 **Understands what you copied** — images get thumbnails, colors get a swatch (`#AF52DE`), links are highlighted, files show their names, and each clip shows the app it came from
 - 🔒 **Private by default** — passwords that password managers mark as private are never saved, you can block whole apps, pause recording anytime, and everything stays on your Mac
@@ -46,6 +47,7 @@ The script builds the app, installs it to `/Applications`, and launches it.
 | Open a link / show a file | Right-click → **Open Link** / **Show in Finder** |
 | Pause recording | Click "clipboard" at the top of the panel, or the 📋 menu bar icon → **Pause Recording** |
 | Clear history | Click **clear** at the bottom (starred clips stay) |
+| Auto-delete old clips | **Settings → Clipboard → Delete unstarred clips after** 1 hour / 1 day / 7 days / 30 days (starred clips stay) |
 | Keep it open | Click 📌 |
 | Settings | Click ⚙︎ on the panel, or the 📋 menu bar icon → **Settings…** (⌘,) |
 | Launch at login | 📋 menu bar icon → **Open at Login** |
